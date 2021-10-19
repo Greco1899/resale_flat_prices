@@ -1,0 +1,11 @@
+[mapbox]
+# Configure Streamlit to use a custom Mapbox token for elements like st.pydeck_chart and st.map. To get a token for yourself, create an account at https://mapbox.com. It's free (for moderate usage levels)!
+# Default: ""
+token = "pk.eyJ1IjoiZ3JlY28xODk5IiwiYSI6ImNrdG10OGk2djFieHEydnF6azI3bjNiYmgifQ.MoHmL8OEkQM3BP-lxjowdw"
+
+[theme]
+primaryColor="#623fba"
+backgroundColor="#FFFFFF"
+secondaryBackgroundColor="#F0F2F6"
+textColor="#262730"
+font="sans serif"

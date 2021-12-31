@@ -1,3 +1,40 @@
+'''
+sections of app
+
+load data
+    loading data from csv file and introduce app
+    plot interactive column heatmap of resale transactions using pydeck
+
+clean and filter data for visualisation
+    interactive slider for user to select period to visualise
+
+plot visualisation
+    various plots to understand data using seaborn
+
+predictions using pretrained model
+    interactive form for user to enter features for pretrained model to make a prediction
+
+training and tuning new model
+    interactive slider for user to select data to use for experiment with how much data to use for training
+    plot train, validation, and test mae with selected data
+
+comparing and selecting model
+    train lightgbm and xgboost models to compare differences in training speed and accuracy of models
+
+tune model hyperparameters
+    algorithmically tune lightgbm hyperparameters using optuna
+
+train and predict using new model
+    train and predict features using previously entered form with tuned hyperparameters
+
+explaining model
+    explain impact of features on resale price using shap
+    
+end notes
+
+'''
+
+
 # imports
 import pandas as pd
 import numpy as np
@@ -158,6 +195,8 @@ pydeck_map(data_for_map)
 st.write('\n')
 st.write('\n')
 
+
+
 ### clean and filter data visualisation section ###
 
 # slider to select period of years to visualise
@@ -212,7 +251,7 @@ st.write('\n')
 
 
 
-### visualisation section ###
+### plot visualisation section ###
 
 # set plot attributes
 plot_figsize = (15,10)
@@ -427,7 +466,7 @@ st.write('\n')
 
 
 
-#### prediction section ###
+### predictions using pretrained model section ###
 
 st.write('\n')
 st.write('# Predicting Resale Flat Price')
@@ -488,7 +527,7 @@ st.write('\n')
 
 
 
-### modelling section ###
+### training and tuning new model section ###
 
 # cache data
 @st.cache
@@ -527,7 +566,7 @@ st.write('\n')
 
 
 
-### selecting model section ###
+### comparing and selecting model section ###
 
 st.write('''
     The model chosen is a Light Gradient Boosting Machine or [LightGBM](https://github.com/microsoft/LightGBM#readme) 
@@ -843,7 +882,7 @@ st.write('\n')
 
 
 
-### train and predict section ###
+### train and predict using new model section ###
 
 st.write('# Train Model and Predict')
 st.write('Now we will train our model using the optimised hyperparameters, make a prediction using the earlier input.')
@@ -980,6 +1019,12 @@ waterfall_sample = pd.DataFrame({
 })
 # sort waterfall_sample by shap_values in descending order
 waterfall_sample = waterfall_sample.sort_values('shap_impact', ascending=False)
+# get feature and feature_value of high shap_value
+highest_feature = waterfall_sample["features"].loc[waterfall_sample["shap_values"].idxmax()]
+highest_feature_value = round(waterfall_sample["feature_values"].loc[waterfall_sample["shap_values"].idxmax()], 3)
+# get feature and feature_value of lowest shap_value
+lowest_feature = waterfall_sample["features"].loc[waterfall_sample["shap_values"].idxmin()]
+lowest_feature_value = round(waterfall_sample["feature_values"].loc[waterfall_sample["shap_values"].idxmin()])
 
 # describe plot
 st.write('''
@@ -1000,12 +1045,8 @@ st.write(f'''
 st.write(f'''
     And finally in the main chart area, we can inspect how each of the features \'forces\' 
     the resale price from {averge_predict_value} towards {sample_predict_value}. 
-    A "_{waterfall_sample["features"].loc[waterfall_sample["shap_values"].idxmax()]}_" of 
-    {round(waterfall_sample["feature_values"].loc[waterfall_sample["shap_values"].idxmax()], 3)} 
-    increases the resale price the most while a 
-    "_{waterfall_sample["features"].loc[waterfall_sample["shap_values"].idxmin()]}_" of 
-    {round(waterfall_sample["feature_values"].loc[waterfall_sample["shap_values"].idxmin()])} 
-    reduces the resale price the most.
+    A "_{highest_feature}_" of {highest_feature_value} increases the resale price the most 
+    while a "_{lowest_feature}_" of {lowest_feature_value} reduces the resale price the most.
     ''')
 
 # set plot and figure size
@@ -1026,36 +1067,6 @@ ax.set_ylabel('Features', fontsize=plot_axis_fontsize)
 
 # show plot
 st.pyplot(fig)
-st.write('\n')
-
-### waterfall plot of shap values of one data point ###
-
-# describe plot
-st.write('Here a look at another example using your earlier inputs!')
-
-# find shap values of earlier input data used for prediction
-explainer = shap.Explainer(lgb_model)
-shap_values_input = explainer(input_data)
-
-# set plot and figure size
-fig, ax = plt.subplots(figsize=plot_figsize)
-
-# plot
-shap.plots.waterfall(shap_values_input[0], show=False)
-# get current figure
-fig = plt.gcf()
-fig.set_figwidth(15)
-fig.set_figheight(10)
-
-# formatting
-# set title
-ax.set_title('Impact of Features on Resale Price', fontsize=plot_title_fontsize)
-ax.set_xlabel('SHAP Value', fontsize=plot_axis_fontsize)
-ax.set_ylabel('Features', fontsize=plot_axis_fontsize)
-
-# show plot
-st.pyplot(fig)
-st.write('\n')
 st.write('\n')
 
 

@@ -1,7 +1,64 @@
 '''
-Overview
+overview
+
+here are functions used to clean and engineer data of resale_flat_prices data from data.gov
+clean columns such as converting flat_model to all uppercase for consistency
+engineer new columns such as full_address and coordinates
+
+there are also functions for modelling
+such as cross validation of model and predicting using model
+
+# download file from url and save as raw file
+download_file(url, file_name)
+
+# extract files in zip and read as dataframe
+extract_csv_files_in_zip_to_dataframe(zip_file)
+
+# combine, clean, and transform resale flat prices data
+combine_clean_transform_zip(raw_data, coordinates_map, list_of_columns_to_use, start_date='1990-01-01', end_date='2100-01-01')
+
+# combine, clean, and transform resale flat prices data
+combine_clean_transform_zip_partial(raw_data, coordinates_map, list_of_columns_to_use=['year_month', 'block', 'street_name', 'full_address', 'latitude', 'longitude'])
+
+# get coordinates from address as latitude and longitude using google geocode api
+get_coordinates_from_address(address, api_key)
+
+# clean coordinates
+clean_coordinates(coordinates_df, coordinates_boundary)
+    
+# check if there are new addresses without coordinates in the coordinates_master file and update missing coordinates
+check_and_update_address_coordinates(coordinates_map, clean_resale_flat_prices, api_key, coordinates_boundary)
+    
+# validate model using kfolds cross validation
+cv_results(model, X, y, num_folds, kfold_random_state, to_print=True)
+   
+# predict using model and print mean absolute error and root mean squared error
+pred_model(model, X_test, y_test, to_print=True)
+   
+# filter and split data into train and test set
+filter_and_split_data(clean_data, test_months, train_years)
+   
+# train, validate, and test model
+train_validate_test_model(train_data, test_data, train_years, model, random_state=42)
+    
+# define optuna objective for lgm model using cv
+optuna_objective_lightgbm_cv(trial, train_data)
+
+# optimise study with cross validation
+optimise_study_cv(n_trials, train_data)
+
+# train xgb model
+train_xgbmodel(train_data, xgb_params=None)
+
+# get feature importance of xgb model
+get_feature_importance_from_xgb(xgb_model, X)
+
+# plot feature importance from xgb model
+plot_feature_importance_from_xgb(xgb_feature_importance, figsize, file_name='False')
 
 '''
+
+
 
 # imports
 

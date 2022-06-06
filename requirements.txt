@@ -7,5 +7,3 @@ lightgbm==2.3.1
 xgboost==1.1.1
 optuna==2.9.1
 shap==0.39.0
-numpy>=1.22.2 # not directly required, pinned by Snyk to avoid a vulnerability
-scikit-learn>=0.24.2 # not directly required, pinned by Snyk to avoid a vulnerability

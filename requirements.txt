@@ -1,11 +1,14 @@
-streamlit==1.11.1
-pandas==1.0.5
+lightgbm==3.3.3
+matplotlib==3.5.1
+numpy==1.21.5
+optuna==3.0.5
+pandas==1.4.2
+plotly==5.6.0
+pydeck==0.7.1
+python_dateutil==2.8.2
+requests==2.27.1
+scikit_learn==1.2.0
 seaborn==0.11.2
-matplotlib==3.4.3
-pydeck==0.7.0
-lightgbm==2.3.1
-xgboost==1.7.0
-optuna==2.9.1
-shap==0.39.0
-mistune>=2.0.3 # not directly required, pinned by Snyk to avoid a vulnerability
-setuptools>=65.5.1 # not directly required, pinned by Snyk to avoid a vulnerability
+shap==0.41.0
+streamlit==1.16.0
+xgboost==1.7.2

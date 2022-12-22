@@ -11,21 +11,8 @@ clean and filter data for visualisation
 plot visualisation
     various plots to understand data using seaborn
 
-predictions using pretrained model
-    interactive form for user to enter features for pretrained model to make a prediction
-
-training and tuning new model
-    interactive slider for user to select data to use for experiment with how much data to use for training
-    plot train, validation, and test mae with selected data
-
-comparing and selecting model
-    train lightgbm and xgboost models to compare differences in training speed and accuracy of models
-
-tune model hyperparameters
-    algorithmically tune lightgbm hyperparameters using optuna
-
-train and predict using new model
-    train and predict features using previously entered form with tuned hyperparameters
+predictions using lgb model
+    interactive form for user to enter features for lgb model to make a prediction
 
 explaining model
     explain impact of features on resale price using shap
@@ -37,25 +24,16 @@ end notes
 
 # imports
 import pandas as pd
-import numpy as np
 import streamlit as st
 import os
 import datetime as dt
 from dateutil.relativedelta import relativedelta
-import requests
-import pickle
-import time
 
 import matplotlib.pyplot as plt
-import matplotlib
-import seaborn as sns
 import pydeck as pdk
+import plotly.express as px
 
 import lightgbm as lgb
-import xgboost as xgb
-import optuna
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error
 import shap
 
 import resale_flat_prices_library as LIB
@@ -239,7 +217,7 @@ most_expensive = data.loc[(data['resale_price'] == period_describe['max'])].rese
 
 # print descriptive statistics
 st.write(f'In the period from {visualisation_period[0]} to {visualisation_period[1]}:')
-st.write(f'The average resale flat price is ${period_mean} and the median is ${period_median}.')
+st.write(f'The average resale flat price is \${period_mean} and the median is \${period_median}.')
 st.write(f"""
     The most expensive flat sold for **${period_max}**! 
     The flat was transacted in {most_expensive['year_month'].strftime('%B %Y')} at 
@@ -250,13 +228,12 @@ st.write('\n')
 st.write('\n')
 
 
-
-### plot visualisation section ###
+### visualisation section ###
 
 # set plot attributes
-plot_figsize = (15,10)
-plot_title_fontsize = 18
-plot_axis_fontsize = 15
+plot_width = 1000
+plot_height = 700
+plot_title_x = 0.5
 
 ### histogram of town ###
 
@@ -265,26 +242,21 @@ town_order = data['town'].value_counts().index
 # describe plot
 st.write(f"This chart shows the number of transactions by Town. The most transactions occured in {town_order[0].title()}.")
 
-# set plot and figure size
-fig, ax = plt.subplots(figsize=plot_figsize)
-
-# plot
-ax = sns.countplot(
+fig = px.histogram(
+    data, 
     y='town',
-    data=data,
-    order=town_order
-)
+    text_auto=True,
+    template='simple_white',
+    height=plot_height,
+    ).update_yaxes(categoryorder='total ascending')
 
-# formatting
-# add thousands separator
-ax.xaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
-# set title
-ax.set_title('Count of Transactions by Town', fontsize=plot_title_fontsize)
-ax.set_xlabel('Count', fontsize=plot_axis_fontsize)
-ax.set_ylabel('Town', fontsize=plot_axis_fontsize)
-
-# show plot
-st.pyplot(fig)
+fig = fig.update_layout(
+    title='Count of Transactions by Town',
+    title_x=plot_title_x,
+    xaxis_title='Count',
+    yaxis_title='Town',
+    )
+st.plotly_chart(fig, use_container_width=True)
 st.write('\n')
 
 ### histogram of flat type ###
@@ -295,94 +267,55 @@ st.write(f"""
     The most often transacted Flat Type are {data['flat_type'].value_counts().index[0].title()} flats.
     """)
 
-# set plot and figure size
-fig, ax = plt.subplots(figsize=plot_figsize)
-
 # order by flat_type alphabetically
 flat_type_order = sorted(list(data['flat_type'].unique()))
 
-# plot
-ax = sns.countplot(
+fig = px.histogram(
+    data,
     x='flat_type',
-    data=data,
-    order=flat_type_order
-)
-
-# formatting
-# add thousands separator
-ax.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
-# set title
-ax.set_title('Count of Transactions by Flat Type', fontsize=plot_title_fontsize)
-ax.set_xlabel('Flat Type', fontsize=plot_axis_fontsize)
-ax.set_ylabel('Count', fontsize=plot_axis_fontsize)
-
-# show plot
-st.pyplot(fig)
-st.write('\n')
-
-### histogram of flat prices ###
-
-# describe plot
-st.write(f"Here's a chart that shows the distribution of Resale Prices by Flat Type.")
-
-# set plot and figure size
-fig, ax = plt.subplots(figsize=plot_figsize)
-
-# plot
-ax = sns.histplot(
-    x='resale_price',
-    data=data.sort_values('flat_type'),
-    bins=100,
-    hue='flat_type',
-    element='step',
-    kde=True
-)
-
-# formatting
-# add thousands separator
-ax.xaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
-ax.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
-# set title
-ax.set_title('Resale Flat Price by Flat Type', fontsize=plot_title_fontsize)
-ax.set_xlabel('Resale Price', fontsize=plot_axis_fontsize)
-ax.set_ylabel('Count', fontsize=plot_axis_fontsize)
-
-# show plot
-st.pyplot(fig)
+    category_orders=dict(flat_type=flat_type_order),
+    text_auto=True,
+    template='simple_white',
+    height=plot_height,
+    )
+    
+fig = fig.update_layout(
+    title='Count of Transactions by Flat Type',
+    title_x=plot_title_x,
+    xaxis_title='Flat Type',
+    yaxis_title='Count'
+    )
+st.plotly_chart(fig, use_container_width=True)
 st.write('\n')
 
 ### scatterplot of resale_price and floor_area_sqm ###
 
-## describe plot
+# describe plot
 st.write(f"""
     Now this is a scatterplot of Resale Prices compared to Floor Area. 
     No surprise here that we can see a general trend that a flat with more rooms and space cost more.
     """)
 st.write(f"However, we can also see that similar flats with the same floor area and flat type can vary significantly in price!")
 
-# set plot and figure size
-fig, ax = plt.subplots(figsize=plot_figsize)
-
-# plot
-sns.scatterplot(
+fig = px.scatter(
+    data,
     x='floor_area_sqm',
     y='resale_price',
-    data=data.sort_values('flat_type'),
-    hue='flat_type',
-    alpha=0.4
-)
-
-# formatting
-# add thousands separator
-ax.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
-# set title
-ax.set_title('Resale Flat Price vs Floor Area', fontsize=plot_title_fontsize)
-ax.set_xlabel('Floor Area (SQM)', fontsize=plot_axis_fontsize)
-ax.set_ylabel('Resale Price', fontsize=plot_axis_fontsize)
-
-
-# show plot
-st.pyplot(fig)
+    color='flat_type',
+    opacity=0.4,
+    category_orders=dict(flat_type=flat_type_order),
+    template='simple_white',
+    height=plot_height,
+    )
+    
+fig = fig.update_layout(
+    title='Resale Flat Price vs Floor Area',
+    title_x=plot_title_x,
+    xaxis_title='Floor Area (SQM)',
+    yaxis_title='Resale Price',
+    legend_title='Flat Type'
+    )
+st.plotly_chart(fig, use_container_width=True)
 st.write('\n')
 
 ### boxplot of flat type ###
@@ -393,31 +326,22 @@ st.write("""
     Here's a quick refresher on how to [read boxplots](https://miro.medium.com/max/2400/1*2c21SkzJMf3frPXPAR_gZA.png) if you need it.
     """)
 
-# set plot and figure size
-fig, ax = plt.subplots(figsize=plot_figsize)
-
-# order by flat_type alphabetically
-flat_type_order = sorted(list(data['flat_type'].unique()))
-
-# plot
-ax = sns.boxplot(
-    x='flat_type', 
-    y='resale_price', 
-    data=data,
-    order=flat_type_order, 
-    flierprops={'marker':'.', 'alpha':0.05}
+fig = px.box(
+    data,
+    x='resale_price',
+    y='flat_type',
+    category_orders=dict(flat_type=flat_type_order),
+    template='simple_white',
+    height=plot_height,
     )
 
-# formatting
-# add thousands separator
-ax.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
-# set title
-ax.set_title('Resale Flat Price by Flat Type', fontsize=plot_title_fontsize)
-ax.set_xlabel('Flat Type', fontsize=plot_axis_fontsize)
-ax.set_ylabel('Resale Price', fontsize=plot_axis_fontsize)
-
-# show plot
-st.pyplot(fig)
+fig = fig.update_layout(
+    title='Resale Price by Flat Type',
+    title_x=plot_title_x,
+    xaxis_title='Resale Price',
+    yaxis_title='Flat Type',
+    )
+st.plotly_chart(fig, use_container_width=True)
 st.write('\n')
 
 ### boxplot of town ###
@@ -440,33 +364,26 @@ st.write(f"""
     The median price of a flat in {most_expensive_town} is **{median_price_difference}** times higher than {least_expensive_town}!
     """)
 
-# set plot and figure size
-fig, ax = plt.subplots(figsize=plot_figsize)
-
-# plot boxplot
-sns.boxplot(
-    x='resale_price', 
-    y='town', 
-    data=data, 
-    order=town_order,
-    flierprops={'marker':'.', 'alpha':0.05}
+fig = px.box(
+    data,
+    x='resale_price',
+    y='town',
+    category_orders={'town':town_order},
+    template='simple_white',
+    height=plot_height,
     )
 
-# formatting
-# add thousands separator
-ax.xaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
-# set title and axis
-ax.set_title('Resale Flat Price by Town', fontsize=plot_title_fontsize)
-ax.set_xlabel('Resale Price', fontsize=plot_axis_fontsize)
-ax.set_ylabel('Town', fontsize=plot_axis_fontsize)
-
-# show plot
-st.pyplot(fig)
+fig = fig.update_layout(
+    title='Resale Price by Town',
+    title_x=plot_title_x,
+    xaxis_title='Resale Price',
+    yaxis_title='Town',
+    )
+st.plotly_chart(fig, use_container_width=True)
 st.write('\n')
 
 
-
-### predictions using pretrained model section ###
+### prediction section ###
 
 st.write('\n')
 st.write('# Predicting Resale Flat Price')
@@ -502,293 +419,9 @@ with st.form(key='input_form'):
     st.write('First, load the inputs to the machine learning model to prepare for a prediction:')
     submit = st.form_submit_button(label='Load')
 
-# load model
-model = pickle.load(open('lgb_baseline.pkl', 'rb'))
-
-# describe predict button
-st.write('Second, take a guess at the price before running the model 😊.')
-
-# add predict button
-if st.button('Predict'):
-    # predict input_data using model
-    prediction = model.predict(input_data)[0]
-    # format prediction with thousands separator and round to two decimal places
-    prediction = '{:,}'.format(round(prediction))
-    # print prediction
-    st.success(f'''
-        The predicted resale price of a flat at postal code {input_postal_code}, 
-        with a floor area of {input_floor_area_sqm} square meters, on the {input_floor} floor, 
-        and with a lease that commenced in {input_lease_commence_year} is **${prediction}**!
-        ''')
-
-st.write('After submitting the prediction, we will move on to the next section and take a more technical look at how we develop a model!')
-st.write('\n')
-st.write('\n')
 
 
-
-### training and tuning new model section ###
-
-# cache data
-@st.cache
-# describe data
-def describe_data(data):
-    data = data.describe()
-    return data
-data_full_description = describe_data(data_full)
-
-# describe full data set and show dataframe
-st.write('# Preparing Data')
-st.write('Here are some summary statistics of the full data set.')
-st.dataframe(data_full_description)
-st.write('\n')
-st.write('\n')
-
-st.write('Singapore and its public housing landscape has changed significantly over the years and will continue to change.')
-st.write(f'''
-    As the data spans over {round((period_date_max - period_date_min) / 10)} decades, 
-    we should make use of recent data to train our model. The question is how recent?
-    ''')
-st.write('''
-    Lets perform an experiment to determine how many years of data should we train a machine learning model on 
-    to be the most accurate in predicting future resale flat prices.
-    ''')
-st.write('\n')
-# define number of months of test data to use
-experiment_test_months = st.slider('Select number of months of test data to use for experiment.', min_value=1, max_value=6, value=3)
-# set minimum number of years of training data
-min_train_years = 2
-# define number of years of train data to use
-experiment_train_years = st.slider('Select number of years of training data.', min_value=min_train_years+1, max_value=10, value=5)
-
-st.write(f'We will use {experiment_test_months} months of test data and experiment with up to {experiment_train_years} years of training data.')
-st.write('\n')
-
-
-
-### comparing and selecting model section ###
-
-st.write('''
-    The model chosen is a Light Gradient Boosting Machine or [LightGBM](https://github.com/microsoft/LightGBM#readme) 
-    for its efficiency and speed to improve performance on this web app. 
-    Mean Absolute Error (MAE) will be the metric that is used for evaluation.
-    ''')
-st.write('''
-    Is LightGBM faster than XGBoost? Hit the \'Train and Compare\' button to train a XGBoost and a LightGBM model 
-    and we can compare the training time taken and MAE using the above selected test and train data!
-    ''')
-
-# define random state
-random_state = 42
-# define model 
-lgb_baseline = lgb.LGBMRegressor(
-    random_state=random_state, 
-    metric='mae'
-    )
-# define model 
-xgb_baseline = xgb.XGBRegressor(
-    random_state=random_state
-)
-
-# add train and compare button
-if st.button('Train and Compare'):
-    with st.spinner('Training models...'):
-        # filter and split data into train and test set
-        temp_train_data, temp_test_data = LIB.filter_and_split_data(clean_data=data_full, test_months=experiment_test_months, train_years=experiment_train_years)
-
-        # set timer to start
-        lgb_time_start = time.perf_counter()
-        # train, validate, and test model
-        lgb_model, lgb_results = LIB.train_validate_test_model(train_data=temp_train_data, test_data=temp_test_data, train_years=experiment_train_years, model=lgb_baseline, random_state=random_state)
-        # set timer to end
-        lgb_time_end = time.perf_counter()
-        # get time taken
-        lgb_time_taken = round(lgb_time_end - lgb_time_start, 2)
-
-        # set timer to start
-        xgb_time_start = time.perf_counter()
-        # train, validate, and test model
-        xgb_model, xgb_results = LIB.train_validate_test_model(train_data=temp_train_data, test_data=temp_test_data, train_years=experiment_train_years, model=xgb_baseline, random_state=random_state)
-        # set timer to end
-        xgb_time_end = time.perf_counter()
-        # get time taken
-        xgb_time_taken = round(xgb_time_end - xgb_time_start, 2)
-
-        # compare mae and get difference
-        mae_difference = lgb_results - xgb_results
-        # get mae from df
-        mae_difference = mae_difference["test_mae"][0]
-        # convert difference to percentage
-        mae_difference_percentage = round((mae_difference / xgb_results["test_mae"][0]) * 100, 2)
-        # compare time and get difference
-        time_difference = lgb_time_taken - xgb_time_taken
-        # convert difference to percentage
-        time_difference_percentage  = round((time_difference / xgb_time_taken) * 100, 2)
-
-        # check results and print message
-        if time_difference < 0 and mae_difference >= 0:
-            st.success('The results are in: LightGBM is a lot faster but slightly less accurate!')
-        elif time_difference < 0 and mae_difference < 0:
-            st.success('The results are in: LightGBM is a lot faster and slightly more accurate!')
-        elif time_difference >= 0 and mae_difference >= 0:
-            st.success('The results are in: LightGBM is slower and slightly less accurate!')
-        elif time_difference >= 0 and mae_difference < 0:
-            st.success('The results are in: LightGBM is slower but slightly more accurate!')
-
-        # create columns
-        col1, col2, col3, col4 = st.columns(4)
-        # show xgb mae
-        col1.metric('XGBoost MAE:', f'{"{:,}".format(round(xgb_results["test_mae"][0]))}')
-        # show lgb mae
-        col2.metric('LightGBM MAE:', f'{"{:,}".format(round(lgb_results["test_mae"][0]))}', f'{mae_difference_percentage}%', 'inverse')
-        # show xgb time taken
-        col3.metric('XGBoost Time:', f'{xgb_time_taken}s')
-        # show lgb time taken
-        col4.metric('LightGBM Time:', f'{lgb_time_taken}s', f'{time_difference_percentage}%', 'inverse')
-        st.write('\n')
-
-st.write('\n')
-
-# cache data
-@st.cache
-# define experiment function
-def run_experiment(data_full):
-    # create empty df
-    experiment_recency = pd.DataFrame()
-    # create loop to define number of years of training data to use
-    for i in range(1, experiment_train_years+1):
-        # filter and split data into train and test set
-        temp_train_data, temp_test_data = LIB.filter_and_split_data(clean_data=data_full, test_months=experiment_test_months, train_years=i)
-        # train, validate, and test model
-        temp_model, temp_results = LIB.train_validate_test_model(train_data=temp_train_data, test_data=temp_test_data, train_years=i, model=lgb_baseline, random_state=random_state)
-        # concat results for each year
-        experiment_recency = pd.concat([experiment_recency, temp_results])
-    return experiment_recency
-# run experiment
-experiment_recency = run_experiment(data_full)
-
-# get mae of 1 year training data
-experiment_best_mae = round(experiment_recency['test_mae'].iloc[0])
-
-st.write('\n')
-st.write('\n')
-
-### lineplot of train, validation, test mae over number of train years ###
-
-# describe plot
-st.write('Below we have a chart that shows the performance of the LightGBM model using Mean Absolute Error.')
-st.write('''
-    Focusing on the MAE of the test dataset (the lower the better), 
-    we can see that the model performs well using 1 year of training data.
-    ''')
-st.write('''
-    We can intepret the MAE as the mean error when the model is trying to predict the resale price of flats across 
-    all records in the test dataset. For example, if a flat\'s actual resale price is $400,000 and the model predicted it to be 
-    $380,000, the absolute error is 20,000. And the mean absolute error simply getting the mean of all the errors of the model.
-    ''')
-st.write(f'Using 1 year of training data results in an MAE of {"{:,}".format(experiment_best_mae)}')
-
-# drop train_validation_mae_difference
-experiment_recency_long = experiment_recency.drop('train_validation_mae_difference', axis=1)
-# convert data from 'wide' to 'long'
-experiment_recency_long = pd.melt(experiment_recency_long, ['train_years'])
-# rename columns
-experiment_recency_long = experiment_recency_long.rename(columns={'variable':'datasets', 'value':'mae'})
-
-# set plot and figure size
-fig, ax = plt.subplots(figsize=plot_figsize)
-
-# plot
-ax = sns.lineplot(
-    x='train_years', 
-    y='mae', 
-    data=experiment_recency_long, 
-    hue='datasets',
-    marker='o'
-)
-
-# formatting
-# add thousands separator
-ax.yaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
-ax.set_xticks(np.arange(1, experiment_train_years+1, 1))
-# set title
-ax.set_title('Mean Absolute Error of Datasets', fontsize=plot_title_fontsize)
-ax.set_xlabel('Number of Years of Training Data Used', fontsize=plot_axis_fontsize)
-ax.set_ylabel('MAE', fontsize=plot_axis_fontsize)
-
-# show plot
-st.pyplot(fig)
-st.write('\n')
-st.write('\n')
-
-
-
-### tune model hyperparameters section ###
-
-st.write('# Tuning Model Hyperparameters')
-st.write('The LightGBM model accuracy can be further improved through hyperparameter tuning!')
-st.write('''
-    Instead of using Grid Search or Random Search to tune the hyperparameters, we will be making use of the 
-    [Optuna framework](https://optuna.org/) which employs an efficient algorithm to automatically search for the ideal hyperparameters.
-    ''')
-
-# define optuna objective for lgb model
-def optuna_objective_lightgbm(trial, train_data, test_data, fixed_params):
-    '''
-    define train, valid, and test data and convert to Dataset for lgb
-    define optuna objective to tune hyperparameters of lightgbm models
-    define hyperparameters to trial, details on what to tune can be found here https://lightgbm.readthedocs.io/en/latest/Parameters-Tuning.html
-    train lgb model on train data and validate on valid data
-    add pruning to prune trials that under perform i.e. mae of trial is worse than previous trials, speeding up the optimisation process
-    test model on test data to get mean absolute error as target of optimisation
-
-    arguments:
-    train_data (df): training data set
-    test_data (df): test data set
-
-    returns:
-    mean absolute error of lgb model on test data
-    '''
-    # set X and y using train data
-    X = train_data.drop('resale_price', axis=1)
-    y = train_data['resale_price']
-    # set train and valid data
-    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, random_state=random_state)
-    # set X_test, y_test using test data
-    X_test = test_data.drop('resale_price', axis=1)
-    y_test = test_data['resale_price']
-    # convert data to Dataset object for lgb
-    d_train = lgb.Dataset(X_train, label=y_train)
-    d_test = lgb.Dataset(X_valid, label=y_valid)
-
-    # set params
-    param = {
-        **fixed_params,
-        **{'num_leaves': trial.suggest_int('num_leaves', 2, 200), # small num_leaves to avoid overfitting
-            'max_depth': trial.suggest_int('max_depth', 1, 20), # small max_depth to avoid overfitting
-            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1),
-            'n_estimators': trial.suggest_int('n_estimators', 100, 1500),
-            'lambda_l1': trial.suggest_float('lambda_l1', 1e-5, 1.0, log=True),
-            'lambda_l2': trial.suggest_float('lambda_l2', 1e-5, 1.0, log=True),
-            'min_gain_to_split': trial.suggest_float('min_gain_to_split', 1e-5, 1.0, log=True),
-            'feature_fraction': trial.suggest_float('feature_fraction', 0.4, 1.0),
-            'bagging_fraction': trial.suggest_float('bagging_fraction', 0.4, 1.0),
-            'bagging_freq': trial.suggest_int('bagging_freq', 1, 10),
-            'min_child_samples': trial.suggest_int('min_child_samples', 1, 100)
-            }
-        }
-
-    # Add a callback for pruning.
-    pruning_callback = optuna.integration.LightGBMPruningCallback(trial, 'l1')
-    # train model
-    model = lgb.train(param, d_train, valid_sets=[d_test], early_stopping_rounds=10, verbose_eval=False, callbacks=[pruning_callback])
-    # predict using model
-    y_pred = model.predict(X_test)
-    # get mean absolute error of test data
-    mae = mean_absolute_error(y_test, y_pred)
-
-    # return
-    return mae
+### train model section ###
 
 # cache data
 @st.cache
@@ -797,95 +430,6 @@ def get_train_test_data(data_full):
     train_data, test_data = LIB.filter_and_split_data(clean_data=data_full, test_months=3, train_years=1)
     return train_data, test_data
 train_data, test_data = get_train_test_data(data_full)
-
-# defined fixed hyperparameters for lgbmregressor
-fixed_params = {
-    'objective': 'regression',
-    'metric': 'mae',
-    'verbosity': -1,
-    'random_state': 42,
-    'boosting_type': 'gbdt'
-    }
-
-# define study with pruning
-study = optuna.create_study(pruner=optuna.pruners.MedianPruner(n_warmup_steps=10), direction="minimize")
-# define lambda function to add arguments
-objective = lambda trial: optuna_objective_lightgbm(trial, train_data, test_data, fixed_params)
-# slider to select number of trials to perform
-# n_trials = st.slider('Select number of trials to perform.', min_value=10, max_value=30, value=10)
-n_trials = 10
-
-# set timer to start
-time_start = time.perf_counter()
-# optimise study with defined number of trials to perform, add spinner as optimisation takes a while to run
-with st.spinner('Optimising hyperparameters...'):
-    # optimise study
-    study.optimize(objective, n_trials=n_trials)
-# set timer to end
-time_end = time.perf_counter()
-# time taken
-time_taken = round(time_end - time_start)
-
-# get best metric
-best_value = round(study.best_value)
-# get best params of metric
-best_params = study.best_params
-# calculate improvement over untuned model
-improvement = abs(best_value - experiment_best_mae)
-# print improved mae and best params
-st.success(
-    f'''
-    Hyperparameters tuning is complete! 
-    The tuned LightGBM model achieved a MAE of {"{:,}".format(best_value)} with {n_trials} trials which took {time_taken} seconds, 
-    this is an improvement of {"{:,}".format(improvement)} over the untuned model which had a MAE of {"{:,}".format(experiment_best_mae)}.
-    '''
-    f'{os.linesep}'
-    f'And here are the tuned hyperparameters\' values:'
-    )
-st.json(best_params)
-st.write('\n')
-st.write('\n')
-
-### barplot of hyperparameters importance ###
-
-# get param importances
-hyperparam_importance = optuna.importance.FanovaImportanceEvaluator(seed=random_state).evaluate(study)
-# convert ordereddict into data frame, transpose and rename columns
-hyperparam_importance = pd.DataFrame(hyperparam_importance, index=[0]).T.reset_index().rename(columns={'index':'hyperparameters', 0:'importance'})
-
-# describe plot
-st.write('There are so many hyperparameters that can be tuned, how can we determine which ones are the most important to focus on if we want to fine tune the model further?')
-st.write(f'This next chart can help! We can view the importance of each hyperparameter with the most important being "_{hyperparam_importance["hyperparameters"][0]}_".')
-st.write(f'Something to note, the importance will be more robust with as more trails performed, but it has been limited to a small number of {n_trials} trials for as an example.')
-st.write('\n')
-
-# set plot and figure size
-fig, ax = plt.subplots(figsize=plot_figsize)
-
-# plot
-ax = sns.barplot(
-    x='importance', 
-    y='hyperparameters', 
-    data=hyperparam_importance
-)
-
-# formatting
-# set title
-ax.set_title('LightGBM Hyperparameters\' Importance', fontsize=plot_title_fontsize)
-ax.set_xlabel('Importance', fontsize=plot_axis_fontsize)
-ax.set_ylabel('Hyperparameter', fontsize=plot_axis_fontsize)
-
-# show plot
-st.pyplot(fig)
-st.write('\n')
-st.write('\n')
-
-
-
-### train and predict using new model section ###
-
-st.write('# Train Model and Predict')
-st.write('Now we will train our model using the optimised hyperparameters, make a prediction using the earlier input.')
 
 # set X and y using train data
 X_train = train_data.drop('resale_price', axis=1)
@@ -897,17 +441,43 @@ y_test = test_data['resale_price']
 d_train = lgb.Dataset(X_train, label=y_train)
 d_test = lgb.Dataset(X_test, label=y_test)
 
+# defined fixed hyperparameters for lgbmregressor
+fixed_params = {
+    'objective': 'regression',
+    'metric': 'mae',
+    'verbosity': -1,
+    'random_state': 42,
+    'boosting_type': 'gbdt',
+    'max_depth': 25,
+    'learning_rate': 0.05,
+    'num_leaves': 50,
+    'n_estimators': 250,
+    }
+
 # fit and train
-lgb_model = lgb.train({**fixed_params, **best_params}, d_train, valid_sets=[d_test], early_stopping_rounds=10, verbose_eval=False)
-# use trained model to predict unseen test data
-model_predictions, model_mae, model_rmse = LIB.pred_model(lgb_model, X_test, y_test, to_print=False)
+lgb_model = lgb.train(fixed_params, d_train, valid_sets=[d_test], callbacks=[lgb.early_stopping(stopping_rounds=10)])
 
-# predict input_data using model
-tuned_prediction = lgb_model.predict(input_data)[0]
-# format prediction with thousands separator and round to two decimal places
-tuned_prediction = '{:,}'.format(round(tuned_prediction))
 
-st.success(f'Using the optimised LightGBM model, it predicted resale price of a flat at postal code {input_postal_code}, with a floor area of {input_floor_area_sqm} square meters, on the {input_floor} floor, and with a lease that commenced in {input_lease_commence_year} to be **${tuned_prediction}**!')
+
+### prediction section ###
+
+# describe predict button
+st.write('Second, take a guess at the price before running the model 😊.')
+
+# add predict button
+if st.button('Predict'):
+    # predict input_data using model
+    prediction = lgb_model.predict(input_data)[0]
+    # format prediction with thousands separator and round to two decimal places
+    prediction = '{:,}'.format(round(prediction))
+    # print prediction
+    st.success(f'''
+        The predicted resale price of a flat at postal code {input_postal_code}, 
+        with a floor area of {input_floor_area_sqm} square meters, on the {input_floor} floor, 
+        and with a lease that commenced in {input_lease_commence_year} is **${prediction}**!
+        ''')
+
+st.write('After submitting the prediction, we will move on to the next section and look at how we can explain our model!')
 st.write('\n')
 st.write('\n')
 
@@ -916,7 +486,7 @@ st.write('\n')
 ### explain model section ###
 
 # define number of samples to use
-number_of_samples = 2500
+number_of_samples = 1000
 # filter X_train by number of samples
 X_train_filtered = X_train[-number_of_samples:]
 
@@ -950,29 +520,29 @@ mean_shap_values = mean_shap_values.sort_values('shap_values', ascending=False)
 # describe plot
 st.write(f'Here we have the mean SHAP values of each of the features, and most important feature is "_{mean_shap_values["features"].iloc[0]}_".')
 
-# set plot and figure size
-fig, ax = plt.subplots(figsize=plot_figsize)
+fig = px.bar(
+    mean_shap_values,
+    x='shap_values',
+    y='features',
+    template='simple_white',
+    height=plot_height,
+    ).update_yaxes(categoryorder='total ascending')
 
-# plot
-sns.barplot(
-    x='shap_values', 
-    y='features', 
-    data=mean_shap_values
+fig = fig.update_layout(
+    title='Mean SHAP Values and Importance of Features',
+    title_x=plot_title_x,
+    xaxis_title='Mean SHAP Value',
+    yaxis_title='Features',
     )
-
-# formatting
-# add thousands separator
-ax.xaxis.set_major_formatter(matplotlib.ticker.StrMethodFormatter('{x:,.0f}'))
-# set title
-ax.set_title('Mean SHAP Values and Importance of Features', fontsize=plot_title_fontsize)
-ax.set_xlabel('Mean SHAP Value', fontsize=plot_axis_fontsize)
-ax.set_ylabel('Features', fontsize=plot_axis_fontsize)
-
-# show plot
-st.pyplot(fig)
+st.plotly_chart(fig, use_container_width=True)
 st.write('\n')
 
 ### swarmplot of shap values of each data point ###
+
+# set plot attributes
+plot_figsize = (15,10)
+plot_title_fontsize = 18
+plot_axis_fontsize = 15
 
 # describe plot
 st.write(f'The below plot summarises all {"{:,}".format(number_of_samples)} data points in the training data set and shows the positive or negative impact on the outcome of the model.')
@@ -1067,6 +637,37 @@ ax.set_ylabel('Features', fontsize=plot_axis_fontsize)
 
 # show plot
 st.pyplot(fig)
+st.write('\n')
+
+### waterfall plot of shap values of one data point ###
+
+# describe plot
+st.write('Here a look at another example using your earlier inputs!')
+
+# find shap values of earlier input data used for prediction
+explainer = shap.Explainer(lgb_model)
+shap_values_input = explainer(input_data)
+
+# set plot and figure size
+fig, ax = plt.subplots(figsize=plot_figsize)
+
+# plot
+shap.plots.waterfall(shap_values_input[0], show=False)
+# get current figure
+fig = plt.gcf()
+fig.set_figwidth(15)
+fig.set_figheight(10)
+
+# formatting
+# set title
+ax.set_title('Impact of Features on Resale Price', fontsize=plot_title_fontsize)
+ax.set_xlabel('SHAP Value', fontsize=plot_axis_fontsize)
+ax.set_ylabel('Features', fontsize=plot_axis_fontsize)
+
+# show plot
+st.pyplot(fig)
+st.write('\n')
+st.write('\n')
 st.write('\n')
 
 

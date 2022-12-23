@@ -28,6 +28,7 @@ import streamlit as st
 import os
 import datetime as dt
 from dateutil.relativedelta import relativedelta
+import pickle
 
 import matplotlib.pyplot as plt
 import pydeck as pdk
@@ -419,47 +420,8 @@ with st.form(key='input_form'):
     st.write('First, load the inputs to the machine learning model to prepare for a prediction:')
     submit = st.form_submit_button(label='Load')
 
-
-
-### train model section ###
-
-# cache data
-@st.cache
-# filter and split data into train and test set
-def get_train_test_data(data_full):
-    train_data, test_data = LIB.filter_and_split_data(clean_data=data_full, test_months=3, train_years=1)
-    return train_data, test_data
-train_data, test_data = get_train_test_data(data_full)
-
-# set X and y using train data
-X_train = train_data.drop('resale_price', axis=1)
-y_train = train_data['resale_price']
-# set X_test, y_test using test data
-X_test = test_data.drop('resale_price', axis=1)
-y_test = test_data['resale_price']
-# convert data to Dataset object for lgb
-d_train = lgb.Dataset(X_train, label=y_train)
-d_test = lgb.Dataset(X_test, label=y_test)
-
-# defined fixed hyperparameters for lgbmregressor
-fixed_params = {
-    'objective': 'regression',
-    'metric': 'mae',
-    'verbosity': -1,
-    'random_state': 42,
-    'boosting_type': 'gbdt',
-    'max_depth': 25,
-    'learning_rate': 0.05,
-    'num_leaves': 50,
-    'n_estimators': 250,
-    }
-
-# fit and train
-lgb_model = lgb.train(fixed_params, d_train, valid_sets=[d_test], callbacks=[lgb.early_stopping(stopping_rounds=10)])
-
-
-
-### prediction section ###
+# load model 
+lgb_model = pickle.load(open('lgb_model.pkl', 'rb'))
 
 # describe predict button
 st.write('Second, take a guess at the price before running the model 😊.')
@@ -484,6 +446,21 @@ st.write('\n')
 
 
 ### explain model section ###
+
+# cache data
+# @st.cache
+# filter and split data into train and test set
+def get_train_test_data(data_full):
+    train_data, test_data = LIB.filter_and_split_data(clean_data=data_full, test_months=3, train_years=1)
+    return train_data, test_data
+train_data, test_data = get_train_test_data(data_full)
+
+# set X and y using train data
+X_train = train_data.drop('resale_price', axis=1)
+y_train = train_data['resale_price']
+# set X_test, y_test using test data
+X_test = test_data.drop('resale_price', axis=1)
+y_test = test_data['resale_price']
 
 # define number of samples to use
 number_of_samples = 1000

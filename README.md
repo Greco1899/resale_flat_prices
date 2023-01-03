@@ -13,5 +13,5 @@ I'm always looking for feedback, and you can connect with me here: [![LinkedIn][
 [linkedin_badge]: https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&style=social&logo=linkedin&logoColor=white
 [linkedin_profile]: https://www.linkedin.com/in/russellchanws
 [streamlit_share_badge]: https://static.streamlit.io/badges/streamlit_badge_black_white.svg
-[streamlit_share_link]: https://share.streamlit.io/greco1899/streamlit_resale_flat_prices/main/streamlit_resale_flat_prices_app.py
+[streamlit_share_link]: https://greco1899-resale-flat-prices.streamlit.app
 [app_preview_img]: https://raw.githubusercontent.com/Greco1899/streamlit_resale_flat_prices/main/app_preview.png

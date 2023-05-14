@@ -14,3 +14,4 @@ streamlit==1.16.0
 xgboost==1.7.2
 setuptools>=65.5.1 # not directly required, pinned by Snyk to avoid a vulnerability
 wheel>=0.38.0 # not directly required, pinned by Snyk to avoid a vulnerability
+altair==4.0

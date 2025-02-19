@@ -1,4 +1,4 @@
-lightgbm==3.3.3
+lightgbm==4.6.0
 matplotlib==3.5.1
 numpy==1.22.2
 optuna==3.0.5
